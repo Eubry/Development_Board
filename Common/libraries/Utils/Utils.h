@@ -22,6 +22,7 @@ namespace Utils {
    * @return Mapped value
    */
   inline long mapValue(long value, long fromLow, long fromHigh, long toLow, long toHigh) {
+    if (fromLow == fromHigh) return toLow;
     return (value - fromLow) * (toHigh - toLow) / (fromHigh - fromLow) + toLow;
   }
   
@@ -47,7 +48,7 @@ namespace Utils {
    */
   template<typename T>
   inline float average(T* values, int size) {
-    if (size == 0) return 0.0;
+    if (values == nullptr || size == 0) return 0.0;
     
     float sum = 0;
     for (int i = 0; i < size; i++) {
