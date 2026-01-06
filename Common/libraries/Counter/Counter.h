@@ -1,15 +1,7 @@
 #ifndef COUNTER_H
 #define COUNTER_H
-
-#if __has_include("stdint.h")
-#include <stdint.h>
-#endif
-#if __has_include(<utility>)
 #include <utility>
-#endif
-#if __has_include("esp_timer.h")
 #include "esp_timer.h"
-#endif
 class cCount{
     private:
         int _cnt=0;

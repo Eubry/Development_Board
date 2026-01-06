@@ -7,7 +7,7 @@
  * @date 2025-10-02
  * @author Eubry Gomez Ramirez
  */
-#include "Counter.h"
+#include "counter.h"
 
 void cCount::checkGoalChange(int goal){
     if(_pvGoal!=goal){
@@ -63,11 +63,7 @@ void cTime::checkGoalChange(int64_t goalMicrosec){{
 }}
 void cTime::wait(int64_t goalMicrosec){
     checkGoalChange(goalMicrosec);
-#if __has_include("esp_timer.h")
     int64_t currentTime=esp_timer_get_time();
-#else
-    int64_t currentTime=0; // Fallback when esp_timer is not available
-#endif
     _elapsedTime= (currentTime - _lastTime);//Calculate elapsed time in microseconds
     _rdy=false;
     if(cntFirst<2){
@@ -89,11 +85,7 @@ int64_t cTime::get(){
 void cTime::reset(){
     _elapsedTime=0;
     cntFirst=0;
-#if __has_include("esp_timer.h")
     _lastTime=esp_timer_get_time();
-#else
-    _lastTime=0; // Fallback when esp_timer is not available
-#endif
 }
 cTime::~cTime(){
     _goalTime=0;
