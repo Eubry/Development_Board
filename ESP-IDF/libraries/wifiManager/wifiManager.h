@@ -34,6 +34,7 @@ class wifiConnection{
         wifiConnection(std::string ssid, std::string password, uint8_t maxRetries=5);
         esp_err_t begin(wifi_mode_t mode=WIFI_MODE_STA);
         bool isConnected();
+        std::string getIp();
         esp_err_t stop();
         ~wifiConnection();
 };

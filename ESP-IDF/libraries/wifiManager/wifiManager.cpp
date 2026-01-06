@@ -84,7 +84,7 @@ esp_err_t wifiConnection::begin(wifi_mode_t mode){
     }
     // Start WiFi
     ESP_ERROR_CHECK(esp_wifi_start());
-    ESP_LOGI("wConnection", "WiFi initialization completed.");
+    ESP_LOGI("wConnection", "WiFi initialization completed. Attempting to connect to SSID: %s", _ssid.c_str());
     // Wait for connection or failure
     EventBits_t bits = xEventGroupWaitBits(_wifiEventGroup,
                                            WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
@@ -110,16 +110,19 @@ void wifiConnection::wifiEventHandler(void* arg, esp_event_base_t event_base,
             case WIFI_EVENT_STA_START:
                 esp_wifi_connect();
                 break;
-            case WIFI_EVENT_STA_DISCONNECTED:
+            case WIFI_EVENT_STA_DISCONNECTED: {
+                wifi_event_sta_disconnected_t* disconnected = static_cast<wifi_event_sta_disconnected_t*>(event_data);
+                ESP_LOGW("wConnection", "Disconnected from WiFi. Reason: %d", disconnected->reason);
                 if (instance->_retryCount < instance->_maxRetries) {
                     esp_wifi_connect();
                     instance->_retryCount++;
-                    ESP_LOGI("wConnection", "Retrying to connect to the AP");
+                    ESP_LOGI("wConnection", "Retry %d/%d to connect to the AP", instance->_retryCount, instance->_maxRetries);
                 } else {
+                    ESP_LOGE("wConnection", "Failed after %d retries", instance->_maxRetries);
                     xEventGroupSetBits(instance->_wifiEventGroup, WIFI_FAIL_BIT);
                 }
-                ESP_LOGI("wConnection", "Disconnected from WiFi");
                 break;
+            }
             case WIFI_EVENT_AP_START:
                 ESP_LOGI("wConnection", "WiFi AP started");
                 break;
@@ -151,6 +154,21 @@ esp_err_t wifiConnection::stop() {
     vEventGroupDelete(_wifiEventGroup);
     ESP_LOGI("wifiConnection", "WiFi stopped.");
     return ESP_OK;
+}
+std::string wifiConnection::getIp() {
+    esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (netif == nullptr) {
+        ESP_LOGE("wifiConnection", "Failed to get netif handle");
+        return "";
+    }
+    esp_netif_ip_info_t ipInfo;
+    if (esp_netif_get_ip_info(netif, &ipInfo) != ESP_OK) {
+        ESP_LOGE("wifiConnection", "Failed to get IP info");
+        return "";
+    }
+    char ipStr[16];
+    snprintf(ipStr, sizeof(ipStr), IPSTR, IP2STR(&ipInfo.ip));
+    return std::string(ipStr);
 }
 wifiConnection::~wifiConnection() {
     stop();
