@@ -55,10 +55,25 @@ void loop() {
 A utility library providing common functions for all platforms.
 
 **Features:**
-- Value mapping and constraining
-- Array averaging
-- Timing utilities
+- `mapValue()` - Map a value from one range to another
+- `constrainValue()` - Constrain a value within a specified range (template-based for any type)
+- `average()` - Calculate the average of an array of values (template-based for any type)
 - Cross-platform compatible
+
+**Example:**
+```cpp
+#include <Utils.h>
+
+// Map sensor reading (0-1023) to PWM output (0-255)
+int pwm = Utils::mapValue(analogRead(A0), 0, 1023, 0, 255);
+
+// Constrain temperature to safe range
+float temp = Utils::constrainValue(reading, -40.0f, 85.0f);
+
+// Calculate average of sensor readings
+int readings[5] = {100, 102, 98, 101, 99};
+float avg = Utils::average(readings, 5);
+```
 
 See [Utils/README.md](libraries/Utils/README.md) for detailed documentation.
 

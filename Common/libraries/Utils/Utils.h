@@ -1,8 +1,26 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#if defined(ARDUINO)
 #include <Arduino.h>
-
+#elif defined(ESP_PLATFORM)
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/timers.h"
+#include "esp_err.h"// Include ESP error codes
+#include "esp_log.h"// Add ESP logging support
+#include "esp_timer.h"// Include ESP timer support
+#else
+// Add other platform includes as needed
+#endif
+#if __has_include("stdint.h")
+#include <stdint.h>
+#endif
+#if __has_include(<utility>)
+#include <utility>
+#endif
+#include <string>
+#include <map>
 /**
  * @brief Utility functions for development boards
  * 
@@ -56,22 +74,9 @@ namespace Utils {
     }
     return sum / size;
   }
-  
-  /**
-   * @brief Simple delay with millisecond precision
-   * @param ms Milliseconds to delay
-   */
-  inline void delayMs(unsigned long ms) {
-    delay(ms);
-  }
-  
-  /**
-   * @brief Get current uptime in milliseconds
-   * @return Milliseconds since board started
-   */
-  inline unsigned long getUptime() {
-    return millis();
+  template<typename T>
+  inline bool inMap(const std::string& key, const std::map<std::string, T>& myMap){
+      return myMap.find(key) != myMap.end();
   }
 }
-
 #endif // UTILS_H
