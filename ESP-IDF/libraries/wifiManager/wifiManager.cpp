@@ -5,8 +5,8 @@ wifi_init_config_t wconfig;
 wifi_mode_t currentWiFiMode = WIFI_MODE_NULL;
 
 //-------------------------------------
-wifiConnection::wifiConnection(std::string ssid, std::string password, uint8_t maxRetries)
-: _ssid(ssid), _password(password), _maxRetries(maxRetries), _retryCount(0), _wifiMode(WIFI_MODE_NULL) {
+wifiConnection::wifiConnection(std::string ssid, std::string password, uint8_t maxRetries, std::string hostname)
+: _ssid(ssid), _password(password), _hostname(hostname), _maxRetries(maxRetries), _retryCount(0), _wifiMode(WIFI_MODE_NULL) {
     _wifiEventGroup = xEventGroupCreate();
 }
 esp_err_t wifiConnection::begin(wifi_mode_t mode){
@@ -28,16 +28,24 @@ esp_err_t wifiConnection::begin(wifi_mode_t mode){
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     // Create default WiFi station or AP
+    esp_netif_t* netif_sta = nullptr;
+    
     if (_wifiMode == WIFI_MODE_STA) {
-        esp_netif_create_default_wifi_sta();
+        netif_sta = esp_netif_create_default_wifi_sta();
     } else if (_wifiMode == WIFI_MODE_AP) {
         esp_netif_create_default_wifi_ap();
     } else if (_wifiMode == WIFI_MODE_APSTA) {
         esp_netif_create_default_wifi_ap();
-        esp_netif_create_default_wifi_sta();
+        netif_sta = esp_netif_create_default_wifi_sta();
     } else {
         ESP_LOGE("wConnection", "Invalid WiFi mode");
         return ESP_ERR_INVALID_ARG;
+    }
+
+    // Set hostname for STA mode
+    if (netif_sta != nullptr && !_hostname.empty()) {
+        ESP_ERROR_CHECK(esp_netif_set_hostname(netif_sta, _hostname.c_str()));
+        ESP_LOGI("wConnection", "Hostname set to: %s", _hostname.c_str());
     }
 
     // Initialize WiFi with default configuration
@@ -169,6 +177,19 @@ std::string wifiConnection::getIp() {
     char ipStr[16];
     snprintf(ipStr, sizeof(ipStr), IPSTR, IP2STR(&ipInfo.ip));
     return std::string(ipStr);
+}
+std::string wifiConnection::getHostname() {
+    esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (netif == nullptr) {
+        ESP_LOGE("wifiConnection", "Failed to get netif handle");
+        return "";
+    }
+    const char* hostname = nullptr;
+    if (esp_netif_get_hostname(netif, &hostname) != ESP_OK || hostname == nullptr) {
+        ESP_LOGE("wifiConnection", "Failed to get hostname");
+        return "";
+    }
+    return std::string(hostname);
 }
 wifiConnection::~wifiConnection() {
     stop();

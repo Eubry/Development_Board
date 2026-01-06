@@ -22,6 +22,7 @@ class wifiConnection{
     private:
         std::string _ssid;
         std::string _password;
+        std::string _hostname;
         uint8_t _maxRetries;
         uint8_t _retryCount;
         wifi_mode_t _wifiMode;
@@ -31,10 +32,11 @@ class wifiConnection{
         static void wifiEventHandler(void* arg, esp_event_base_t event_base,
                                      int32_t event_id, void* event_data);
     public:
-        wifiConnection(std::string ssid, std::string password, uint8_t maxRetries=5);
+        wifiConnection(std::string ssid, std::string password, uint8_t maxRetries=5, std::string hostname="esp32-device");
         esp_err_t begin(wifi_mode_t mode=WIFI_MODE_STA);
         bool isConnected();
         std::string getIp();
+        std::string getHostname();
         esp_err_t stop();
         ~wifiConnection();
 };
