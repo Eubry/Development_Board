@@ -42,7 +42,7 @@ namespace Utils{
         void del(const std::string& name);
         //Reset watchdog for a task by name
         void resetWatchdog(const std::string& name);
-        ~taskManager(){};
+        ~taskManager();
   };
 }
 #endif // UTILS_H

@@ -52,5 +52,16 @@ void taskManager::resetWatchdog(const std::string& name){
         ESP_LOGE("TASK_MANAGER", "Task not found: %s", name.c_str());
     }
 }
+taskManager::~taskManager(){
+    for(auto const& taskPair : _taskMap){
+        esp_err_t wdt_err = esp_task_wdt_delete(taskPair.second.handle);
+        if(wdt_err != ESP_OK && wdt_err != ESP_ERR_NOT_FOUND){
+            ESP_LOGW("TASK_MANAGER", "Failed to unsubscribe task %s from watchdog: %s", taskPair.first.c_str(), esp_err_to_name(wdt_err));
+        }
+        vTaskDelete(taskPair.second.handle);
+        ESP_LOGI("TASK_MANAGER", "Deleted task: %s", taskPair.first.c_str());
+    }
+    _taskMap.clear();
+}
 
 } // namespace Utils

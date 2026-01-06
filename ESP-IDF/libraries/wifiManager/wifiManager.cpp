@@ -172,6 +172,7 @@ esp_err_t wifiConnection::stop() {
     ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, nullptr));
     vEventGroupDelete(_wifiEventGroup);
     ESP_LOGI("wifiConnection", "WiFi stopped.");
+    
     return ESP_OK;
 }
 std::string wifiConnection::getIp() {
