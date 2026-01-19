@@ -39,12 +39,12 @@ class serverManager{
             const char* tx="";// Response data
             const char* type="application/json";// Response content type
             void (*handler)(void *pvPar)=nullptr;// Handler function
+            void* parameter=nullptr;
         };
         struct apiData{
             httpd_method_t method=HTTP_POST;
             const char* error="Content too long";
             const char* uri="";
-            //esp_err_t (*handler)(char* buf,httpd_req_t *req)=nullptr;// Handler function
             std::map <std::string, apiOption> option;
         };
         std::map <std::string, collWData> collWeb;

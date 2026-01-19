@@ -57,11 +57,12 @@ esp_err_t _apihandler(httpd_req_t *req) {
             return ESP_FAIL;
         }
         buf[ret] = '\0';
+        ESP_LOGI(LOG_TAG,"Dev: %s", ctx->uri);
         ESP_LOGI(LOG_TAG,"Received data: %s", buf);
         
         for(const auto& [key, option] : ctx->option){
             if (strstr(buf, option.rx) != NULL) {// Match found, process the request
-                if(option.handler != nullptr){option.handler((void*)req);}// Call custom handler if provided
+                if(option.handler != nullptr){option.handler((void*)option.parameter);}// Call custom handler if provided
                 serverManager::sendResp(req,option.tx,option.type);
                 return ESP_OK;
             }
