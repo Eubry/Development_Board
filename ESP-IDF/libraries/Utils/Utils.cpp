@@ -1,7 +1,10 @@
+#include <typeinfo>
 #include "Utils.h"
 
 namespace Utils {
+//-----------------------------------------
 
+//-----------------------------------------
 void taskManager::statusTask(BaseType_t gpTaskResult, const char* TAG, const char* taskName) {
    if(gpTaskResult != pdPASS) {
       ESP_LOGE(TAG, "Failed to create %s task!", taskName);
