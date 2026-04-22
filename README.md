@@ -85,6 +85,11 @@ Additional documentation, datasheets, and guides can be found in the `docs/` dir
 - Watchdog integration
 - Dynamic task lifecycle management
 
+**drvMotor (ESP-IDF)** - Dual DC motor driver abstraction
+- L293D support (enable + direction pins)
+- DRV8833 support (dual input control)
+- Unified left/right motor API via `motMgr`
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit pull requests with:

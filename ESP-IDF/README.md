@@ -10,6 +10,7 @@ This directory contains ESP-IDF framework specific code and libraries for ESP32 
   - **TaskLifecycleExample** - Dynamic task creation and deletion
 - **libraries/** - ESP-IDF specific libraries
   - **Utils** - FreeRTOS task manager and utilities
+   - **drvMotor** - Dual DC motor driver abstraction (L293D/DRV8833)
 
 ## 🚀 Getting Started
 
@@ -84,6 +85,30 @@ void app_main() {
 ```
 
 See [libraries/Utils/README.md](libraries/Utils/README.md) for detailed documentation.
+
+### drvMotor (ESP-IDF)
+ESP-IDF motor driver abstraction for two-wheel DC motor control.
+
+**Features:**
+- Supports L293D pin mapping (enable + direction pins)
+- Supports DRV8833 pin mapping (dual input per motor)
+- Unified `motMgr` API for left/right motor control
+
+**Example:**
+```cpp
+#include "motorMgr.h"
+
+extern "C" void app_main(void) {
+   motMgr::pinL293D left = {.en = 18, .inA = 5, .inB = 17};
+   motMgr::pinL293D right = {.en = 19, .inA = 16, .inB = 4};
+
+   motMgr motors(left, right);
+   motors.begin();
+   motors.move(120, 120);
+}
+```
+
+See [libraries/drvMotor/README.md](libraries/drvMotor/README.md) for detailed documentation.
 
 ## 📖 Available Examples
 

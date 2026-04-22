@@ -3,6 +3,7 @@
 #include "esp_log.h"// Add ESP logging support
 #include "driver/gpio.h"
 #include "driver/ledc.h"
+#include "esp_adc/adc_oneshot.h"
 #include "Counter.h"
 #include <map>
 #include <string>
@@ -29,8 +30,14 @@ class pinManager{
             int64_t duration_us = 0;
             bool toneActive = false;
         };
+        struct AdcInfo {
+            gpio_num_t pin;
+            adc_channel_t channel;
+        };
         std::map <std::string , PinInfo> pinMap;
         std::map <std::string , PwmInfo> pwmMap;
+        std::map <std::string , AdcInfo> adcMap;
+        adc_oneshot_unit_handle_t adcUnit = nullptr;
         uint8_t nextChannel = 0;
         
     public:
@@ -47,6 +54,9 @@ class pinManager{
         void tone(std::string name, uint32_t frequency, uint8_t volume=50, uint32_t duration_ms=0);
         void noTone(std::string name);
         void update(); // Call this regularly to handle timed tones
+        void analogPin(std::string name, int8_t pin);
+        int  analogRead(std::string name);
+        void analogWrite(std::string name, uint8_t value);
         //gpio_num_t getPin(std::string name);
         //void configureInputPin(gpio_num_t pin, gpio_pull_mode_t pullMode);
 };

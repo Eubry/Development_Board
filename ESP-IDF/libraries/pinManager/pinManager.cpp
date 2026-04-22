@@ -104,7 +104,7 @@ void pinManager::setPwmDutyMicros(std::string name, uint32_t micros){
         ledc_update_duty(LEDC_LOW_SPEED_MODE, pwmMap[name].channel);
     }
 }
-// Set PWM frequency
+// Set PWM frequency - example usage: pin.setPwmFrequency("led", 1000); // Change frequency to 1 kHz
 void pinManager::setPwmFrequency(std::string name, uint32_t frequency){
     if(pwmMap.find(name) != pwmMap.end()){
         ledc_set_freq(LEDC_LOW_SPEED_MODE, pwmMap[name].timer, frequency);
@@ -152,3 +152,95 @@ void pinManager::update(){
         }
     }
 }
+// Register an ADC pin (GPIO 1-10, ADC1 channels 0-9)
+void pinManager::analogPin(std::string name, int8_t pin){
+    if(pin < 1 || pin > 10){
+        ESP_LOGE(PIN_TAG, "Invalid ADC pin: %d. ESP32-S3 ADC1 supports GPIO 1-10 only.", pin);
+        return;
+    }
+    if(adcUnit == nullptr){
+        adc_oneshot_unit_init_cfg_t unit_cfg = {
+            .unit_id = ADC_UNIT_1,
+            .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
+            .ulp_mode = ADC_ULP_MODE_DISABLE
+        };
+        adc_oneshot_new_unit(&unit_cfg, &adcUnit);
+    }
+    adc_channel_t channel = static_cast<adc_channel_t>(pin - 1);
+    adc_oneshot_chan_cfg_t chan_cfg = {
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_DEFAULT
+    };
+    adc_oneshot_config_channel(adcUnit, channel, &chan_cfg);
+    adcMap[name] = {static_cast<gpio_num_t>(pin), channel};
+}
+// Read raw ADC value (0-4095)
+int pinManager::analogRead(std::string name){
+    if(adcMap.find(name) == adcMap.end()){
+        ESP_LOGE(PIN_TAG, "ADC pin '%s' not registered. Call analogPin() first.", name.c_str());
+        return -1;
+    }
+    int raw = 0;
+    adc_oneshot_read(adcUnit, adcMap[name].channel, &raw);
+    return raw;
+}
+// Set PWM duty cycle using Arduino-style 0-255 value
+void pinManager::analogWrite(std::string name, uint8_t value){
+    if(pwmMap.find(name) == pwmMap.end()){
+        ESP_LOGE(PIN_TAG, "PWM pin '%s' not registered. Call pwmPin() first.", name.c_str());
+        return;
+    }
+    uint32_t duty = ((uint32_t)value * 8191) / 255;
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, pwmMap[name].channel, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, pwmMap[name].channel);
+}
+/*
+pin.analogPin("sensor", 4);          // register GPIO4 as ADC input
+int raw = pin.analogRead("sensor");  // 0-4095
+
+pin.pwmPin("led", 5);               // register GPIO5 as PWM output
+pin.analogWrite("led", 128);         // ~50% duty (Arduino-style 0-255)
+*/
+// Register an ADC pin (GPIO 1-10, ADC1 channels 0-9)
+/*void pinManager::analogPin(std::string name, int8_t pin){
+    if(pin < 1 || pin > 10){
+        ESP_LOGE(PIN_TAG, "Invalid ADC pin: %d. ESP32-S3 ADC1 supports GPIO 1-10 only.", pin);
+        return;
+    }
+    if(adcUnit == nullptr){
+        adc_oneshot_unit_init_cfg_t unit_cfg = {
+            .unit_id = ADC_UNIT_1,
+            .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
+            .ulp_mode = ADC_ULP_MODE_DISABLE
+        };
+        adc_oneshot_new_unit(&unit_cfg, &adcUnit);
+    }
+    adc_channel_t channel = static_cast<adc_channel_t>(pin - 1);
+    adc_oneshot_chan_cfg_t chan_cfg = {
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_DEFAULT
+    };
+    adc_oneshot_config_channel(adcUnit, channel, &chan_cfg);
+    adcMap[name] = {static_cast<gpio_num_t>(pin), channel};
+}
+// Read raw ADC value (0-4095)
+int pinManager::analogRead(std::string name){
+    if(adcMap.find(name) == adcMap.end()){
+        ESP_LOGE(PIN_TAG, "ADC pin '%s' not registered. Call analogPin() first.", name.c_str());
+        return -1;
+    }
+    int raw = 0;
+    adc_oneshot_read(adcUnit, adcMap[name].channel, &raw);
+    return raw;
+}
+// Set PWM duty cycle using Arduino-style 0-255 value
+void pinManager::analogWrite(std::string name, uint8_t value){
+    if(pwmMap.find(name) == pwmMap.end()){
+        ESP_LOGE(PIN_TAG, "PWM pin '%s' not registered. Call pwmPin() first.", name.c_str());
+        return;
+    }
+    uint32_t duty = ((uint32_t)value * 8191) / 255;
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, pwmMap[name].channel, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, pwmMap[name].channel);
+}
+*/
