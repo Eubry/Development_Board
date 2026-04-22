@@ -1,203 +1,73 @@
 # wifiManager Library (ESP-IDF)
 
-ESP-IDF library providing simplified WiFi connection management with automatic reconnection, hostname configuration, and mDNS support for ESP32 development.
+Simplified Wi-Fi connection lifecycle for ESP-IDF projects (STA/AP/APSTA).
 
-## Description
+## Overview
 
-The `wifiManager` library provides a high-level, object-oriented interface for managing WiFi connections on ESP32 using ESP-IDF. It handles the complexity of WiFi initialization, event handling, automatic reconnection, and network configuration, allowing developers to focus on application logic rather than WiFi stack management.
+`wifiConnection` wraps initialization of NVS, netif, Wi-Fi event handling, retry logic, and optional mDNS hostname publishing.
 
-## Features
+## Dependencies
 
-### WiFi Connection Management
-- **Multiple Modes**: Station (STA), Access Point (AP), or both (APSTA)
-- **Automatic Reconnection**: Configurable retry logic with maximum attempts
-- **Event-Driven**: Handles WiFi and IP events automatically
-- **Connection Status**: Real-time connection monitoring
+From `CMakeLists.txt`:
 
-### Network Configuration
-- **Custom Hostname**: Set meaningful device names
-- **DHCP Support**: Automatic IP address assignment
-- **IP Address Retrieval**: Get assigned IP address programmatically
-- **Network Interface Management**: Proper netif initialization and cleanup
+- `Counter`
+- `esp_wifi`
+- `esp_netif`
+- `espressif__mdns`
+- Private: `nvs_flash`, `esp_netif_stack`, `esp_event`
 
-### mDNS Integration
-- **Automatic Publishing**: Device hostname advertised on local network
-- **Local Domain**: Access device via `hostname.local`
-- **Service Discovery**: Compatible with Bonjour/Avahi
-
-### Security
-- **WPA2-PSK**: Secure WiFi connections
-- **PMF Support**: Protected Management Frames capable
-- **Open Networks**: Support for unsecured APs (AP mode)
-
-### Error Handling
-- **Retry Logic**: Automatic reconnection attempts on disconnect
-- **Detailed Logging**: ESP_LOG integration for debugging
-- **Graceful Degradation**: Proper error reporting and cleanup
-
-## Installation
-
-### ESP-IDF Project
-
-1. Copy the wifiManager folder to your project's components directory:
-   ```bash
-   cp -r ESP-IDF/libraries/wifiManager your-project/components/
-   ```
-
-2. The component requires the Counter library:
-   ```bash
-   cp -r Common/libraries/Counter your-project/components/
-   ```
-
-3. The component will be automatically detected by ESP-IDF build system
-
-4. Include in your code:
-   ```cpp
-   #include "wifiManager.h"
-   ```
-
-## Usage Examples
-
-### Basic WiFi Connection (Station Mode)
+## Public API
 
 ```cpp
-#include "wifiManager.h"
+wifiConnection(std::string ssid,
+               std::string password,
+               uint8_t maxRetries = 5,
+               std::string hostname = "esp32-device");
 
-extern "C" void app_main(void)
-{
-    // Create WiFi connection
-    // Parameters: SSID, Password, Max Retries, Hostname
-    wifiConnection wifi("MyWiFiNetwork", "MyPassword", 5, "esp32-device");
-    
-    // Connect in Station mode
-    esp_err_t result = wifi.begin(WIFI_MODE_STA);
-    
-    if (result == ESP_OK) {
-        ESP_LOGI("MAIN", "Connected to WiFi!");
-        ESP_LOGI("MAIN", "IP: %s", wifi.getIp().c_str());
-        ESP_LOGI("MAIN", "Hostname: %s", wifi.getHostname().c_str());
-    } else {
-        ESP_LOGE("MAIN", "Failed to connect");
-    }
-    
-    // Your application code here
-    while(1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
+esp_err_t begin(wifi_mode_t mode = WIFI_MODE_STA);
+bool isConnected();
+std::string getIp();
+std::string getHostname();
+esp_err_t stop();
 ```
 
-### Connection Status Monitoring
+## Usage
 
 ```cpp
 #include "wifiManager.h"
 
-extern "C" void app_main(void)
-{
-    wifiConnection wifi("MyWiFi", "MyPass", 5, "esp32-monitor");
-    
+extern "C" void app_main(void) {
+    wifiConnection wifi("MySSID", "MyPassword", 5, "esp32-node");
+
     if (wifi.begin(WIFI_MODE_STA) == ESP_OK) {
-        ESP_LOGI("MAIN", "Initial connection successful");
-        
-        while(1) {
-            if (wifi.isConnected()) {
-                ESP_LOGI("MAIN", "WiFi connected - IP: %s", wifi.getIp().c_str());
-            } else {
-                ESP_LOGW("MAIN", "WiFi disconnected - reconnecting...");
-            }
-            vTaskDelay(pdMS_TO_TICKS(5000));
-        }
+        ESP_LOGI("APP", "Connected: %s", wifi.getIp().c_str());
+        ESP_LOGI("APP", "Hostname: %s", wifi.getHostname().c_str());
+    }
+
+    while (true) {
+        ESP_LOGI("APP", "connected=%d", wifi.isConnected());
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
 ```
 
-### Access Point Mode
+## Behavior Notes
+
+- Retries happen on `WIFI_EVENT_STA_DISCONNECTED` up to `maxRetries`.
+- In STA mode, the class sets hostname on `WIFI_STA_DEF` netif.
+- On IP acquisition, it attempts `mdns_init()` and publishes `<hostname>.local`.
+
+## Current Limitations
+
+- `begin(...)` uses `xEventGroupWaitBits(..., portMAX_DELAY)`, so it blocks until success/failure.
+- Event handler instances are registered with `nullptr` handles and `stop()` tries to unregister with `nullptr`, so explicit handler unregistration is not fully implemented.
+- `stop()` is also called by the destructor, so calling `stop()` manually and then allowing destructor cleanup may duplicate shutdown attempts.
+
+## Include
 
 ```cpp
 #include "wifiManager.h"
-
-extern "C" void app_main(void)
-{
-    // Create WiFi Access Point
-    wifiConnection ap("ESP32-Hotspot", "password123", 0, "esp32-ap");
-    
-    // Start in AP mode
-    esp_err_t result = ap.begin(WIFI_MODE_AP);
-    
-    if (result == ESP_OK) {
-        ESP_LOGI("MAIN", "Access Point started");
-        ESP_LOGI("MAIN", "SSID: ESP32-Hotspot");
-        ESP_LOGI("MAIN", "Password: password123");
-        ESP_LOGI("MAIN", "Max connections: 4");
-    }
-    
-    while(1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
 ```
-
-### Station + Access Point Mode (APSTA)
-
-```cpp
-#include "wifiManager.h"
-
-extern "C" void app_main(void)
-{
-    // Connect to WiFi and create AP simultaneously
-    wifiConnection wifi("HomeNetwork", "homepass", 5, "esp32-dual");
-    
-    esp_err_t result = wifi.begin(WIFI_MODE_APSTA);
-    
-    if (result == ESP_OK) {
-        ESP_LOGI("MAIN", "Dual mode active");
-        ESP_LOGI("MAIN", "Station IP: %s", wifi.getIp().c_str());
-        ESP_LOGI("MAIN", "AP SSID: HomeNetwork");
-    }
-    
-    while(1) {
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
-```
-
-### Custom Retry Configuration
-
-```cpp
-#include "wifiManager.h"
-
-extern "C" void app_main(void)
-{
-    // 10 retry attempts before giving up
-    wifiConnection wifi("MyNetwork", "mypass", 10, "persistent-esp32");
-    
-    esp_err_t result = wifi.begin(WIFI_MODE_STA);
-    
-    if (result == ESP_OK) {
-        ESP_LOGI("MAIN", "Connected successfully");
-    } else {
-        ESP_LOGE("MAIN", "Failed after 10 retries");
-        // Handle failure (fallback to AP mode, etc.)
-    }
-}
-```
-
-### Graceful Shutdown
-
-```cpp
-#include "wifiManager.h"
-
-void shutdownNetwork(wifiConnection& wifi) {
-    ESP_LOGI("MAIN", "Shutting down WiFi...");
-    
-    esp_err_t result = wifi.stop();
-    
-    if (result == ESP_OK) {
-        ESP_LOGI("MAIN", "WiFi stopped successfully");
-    }
-}
-
-extern "C" void app_main(void)
 {
     wifiConnection wifi("MyWiFi", "MyPass", 5, "esp32-shutdown");
     wifi.begin(WIFI_MODE_STA);

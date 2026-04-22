@@ -1,203 +1,87 @@
 # Utils Library (ESP-IDF)
 
-ESP-IDF specific utility library providing advanced FreeRTOS task management for ESP32 development.
+Utility helpers for ESP-IDF projects, centered on named FreeRTOS task lifecycle management.
 
-## Description
+## Overview
 
-This library provides ESP-IDF framework utilities that leverage FreeRTOS and ESP32-specific features. It includes a powerful task management system for creating, monitoring, and controlling FreeRTOS tasks.
+This component provides:
 
-## Features
+- `Utils::taskManager`: create, track, and delete tasks by name.
+- `Utils::inMap(...)`: generic helper to check key existence in `std::map`.
 
-### taskManager Class
+The implementation is in `Utils.cpp` and the public API is in `Utils.h`.
 
-A comprehensive FreeRTOS task management system with the following capabilities:
+## Dependencies
 
-- **Task Creation**: Create tasks with custom parameters using `add()`
-- **Core Affinity**: Pin tasks to specific CPU cores (0 or 1)
-- **Priority Control**: Set task priorities (0-24)
-- **Stack Management**: Configure stack size per task
-- **Watchdog Integration**: Automatic watchdog timer registration and management
-  - Tasks are automatically added to watchdog on creation via `esp_task_wdt_add()`
-  - Global watchdog reset via `resetWatchdog()` using `esp_task_wdt_reset()`
-  - Automatic watchdog cleanup on task deletion via `esp_task_wdt_delete()`
-- **Task Lifecycle**: Safe task creation and deletion with proper cleanup
-- **Task Registry**: Named task tracking via internal `std::map<std::string, taskStruct>`
-- **Automatic Cleanup**: Destructor ensures all tasks are properly deleted
+From `CMakeLists.txt`:
 
-### Public Methods
+- `freertos`
+- `esp_system`
+- `esp_timer`
 
-- `add()` - Create and start a new task with watchdog registration
-- `del()` - Delete a task with automatic watchdog unsubscription  
-- `resetWatchdog()` - Reset global watchdog timer (validates task exists first)
+## Public API
 
-### taskManager Destructor
+### Namespace helper
 
-The destructor automatically cleans up all managed tasks when the taskManager instance is destroyed.
+```cpp
+template<typename T>
+bool Utils::inMap(const std::string& key, const std::map<std::string, T>& myMap);
+```
 
-**Behavior:**
-- Iterates through all tasks in internal map
-- Unsubscribes each task from watchdog timer
-- Deletes all FreeRTOS tasks
-- Clears internal task map
-- Logs deletion of each task
+Returns `true` if `key` exists in `myMap`.
 
-### Helper Functions
+### Class `Utils::taskManager`
 
-- **inMap()**: Template function to check if a key exists in a std::map
+```cpp
+void add(const std::string& name,
+         TaskFunction_t taskFunc,
+         void* param = NULL,
+         UBaseType_t priority = 1,
+         BaseType_t core = 0,
+         uint32_t stackSize = 1024);
 
-## Installation
+void del(const std::string& name);
+void resetWatchdog(const std::string& name);
+```
 
-### ESP-IDF Project
+Behavior summary:
 
-1. Copy the Utils folder to your project's components directory:
-   ```bash
-   cp -r ESP-IDF/libraries/Utils your-project/components/
-   ```
-
-2. The component will be automatically detected by ESP-IDF build system
-
-3. Include in your code:
-   ```cpp
-   #include "Utils.h"
-   ```
+- `add(...)`: creates a task with `xTaskCreatePinnedToCore` and stores its handle by name.
+- `del(...)`: unsubscribes task from WDT with `esp_task_wdt_delete` (best effort), deletes it with `vTaskDelete`, then removes it from the internal map.
+- `resetWatchdog(...)`: calls `esp_task_wdt_reset()` if task name exists in map.
+- Destructor: iterates tracked tasks and deletes them.
 
 ## Usage
 
-### Basic Task Creation
-
 ```cpp
 #include "Utils.h"
 
 Utils::taskManager tasks;
 
-void ledTask(void* param) {
-    while(1) {
-        // Toggle LED
-        gpio_set_level(GPIO_NUM_2, 1);
+void blinkTask(void* pv) {
+    while (true) {
+        // Your task work here.
+        tasks.resetWatchdog("blink");
         vTaskDelay(pdMS_TO_TICKS(500));
-        gpio_set_level(GPIO_NUM_2, 0);
-        vTaskDelay(pdMS_TO_TICKS(500));
-        
-        // Reset watchdog for this task
-        tasks.resetWatchdog("ledTask");
     }
 }
 
-void app_main() {
-    // Create task: name, function, params, priority, core, stack size
-    tasks.add("ledTask", ledTask, NULL, 1, 0, 2048);
+extern "C" void app_main(void) {
+    tasks.add("blink", blinkTask, NULL, 3, 0, 2048);
 }
 ```
 
-### Advanced Task Management
+## Notes And Current Limitations
+
+- `taskManager` does not call `esp_task_wdt_add()` when creating tasks.
+- `resetWatchdog(...)` calls `esp_task_wdt_reset()` for the current running task; the `name` parameter is only used for existence checking.
+- Avoid deleting the currently running task from itself through `taskManager::del(...)` unless you intentionally design for that lifecycle.
+
+## Include
 
 ```cpp
 #include "Utils.h"
-
-Utils::taskManager tasks;
-
-void highPriorityTask(void* param) {
-    int* counter = (int*)param;
-    
-    while(1) {
-        (*counter)++;
-        ESP_LOGI("HPTask", "Count: %d", *counter);
-        
-        tasks.resetWatchdog("highPriorityTask");
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
-}
-
-void lowPriorityTask(void* param) {
-    while(1) {
-        ESP_LOGI("LPTask", "Running background task");
-        
-        tasks.resetWatchdog("lowPriorityTask");
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
-
-void app_main() {
-    int counter = 0;
-    
-    // High priority task on core 1
-    tasks.add("highPriorityTask", highPriorityTask, &counter, 10, 1, 4096);
-    
-    // Low priority task on core 0
-    tasks.add("lowPriorityTask", lowPriorityTask, NULL, 1, 0, 2048);
-    
-    // Later, delete a task if needed
-    vTaskDelay(pdMS_TO_TICKS(10000));
-    tasks.del("lowPriorityTask");
-}
 ```
-
-### Using inMap() Helper
-
-```cpp
-#include "Utils.h"
-#include <map>
-
-void checkConfig() {
-    std::map<std::string, int> config = {
-        {"maxConnections", 10},
-        {"timeout", 5000},
-        {"retries", 3}
-    };
-    
-    if (Utils::inMap("timeout", config)) {
-        ESP_LOGI("Config", "Timeout: %d", config["timeout"]);
-    }
-}
-```
-
-## API Reference
-
-### taskManager::add()
-
-```cpp
-void add(const std::string& name, 
-         TaskFunction_t taskFunc, 
-         void* param = NULL, 
-         UBaseType_t priority = 1, 
-         BaseType_t core = 0, 
-         uint32_t stackSize = 1024)
-```
-
-Creates and starts a new FreeRTOS task with automatic watchdog integration.
-
-**Parameters:**
-- `name` - Unique task identifier (used for task tracking and watchdog management)
-- `taskFunc` - Task function pointer (must have signature `void taskFunc(void*)`)
-- `param` - Optional parameter to pass to the task (default: NULL)
-- `priority` - Task priority (0-24, higher = more priority, default: 1)
-- `core` - CPU core to run on (0 or 1, default: 0)
-- `stackSize` - Stack size in bytes (default: 1024, typical: 2048-4096)
-
-**Behavior:**
-- Creates task using `xTaskCreatePinnedToCore()`
-- Automatically registers task with watchdog timer (`esp_task_wdt_add()`)
-- Stores task information in internal map for management
-- Logs creation status (success/failure) via ESP_LOG
-
-**Example:**
-```cpp
-tasks.add("myTask", myTaskFunction, NULL, 5, 1, 4096);
-```
-
-### taskManager::del()
-
-```cpp
-void del(const std::string& name)
-```
-
-Safely deletes a task by name, including automatic watchdog cleanup.
-
-**Parameters:**
-- `name` - Name of the task to delete
-
-**Behavior:**
-- Checks if task exists in internal map
 - Unsubscribes task from watchdog timer (`esp_task_wdt_delete()`)
 - Deletes the FreeRTOS task (`vTaskDelete()`)
 - Removes task from internal tracking map

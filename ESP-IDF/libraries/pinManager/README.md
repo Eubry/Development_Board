@@ -1,203 +1,85 @@
 # pinManager Library (ESP-IDF)
 
-ESP-IDF library for simplified GPIO management including digital I/O, PWM control, servo motor control, and tone generation for ESP32 development.
+Named GPIO, PWM, tone, and ADC management for ESP-IDF.
 
-## Description
+## Overview
 
-The `pinManager` library provides a high-level, user-friendly interface for managing ESP32 GPIO pins through ESP-IDF's native APIs. It abstracts the complexity of configuring GPIO, LEDC (PWM), and creating a named pin management system that's easy to use and maintain.
+`pinManager` wraps common ESP32 pin workflows using string IDs so your application code can refer to pins by role (for example, `"led"`, `"buzzer"`, `"sensor"`) instead of hard-coded GPIO numbers.
 
-## Features
+## Dependencies
 
-### Digital I/O Management
-- Configure pins as input or output with single function call
-- Internal pull-up/pull-down configuration
-- Read and write digital values using pin names
-- GPIO validation (supports GPIO 0-39 for ESP32)
+From `CMakeLists.txt`:
 
-### PWM (LEDC) Control
-- Initialize PWM on any GPIO pin
-- Up to 8 PWM channels supported
-- 13-bit duty resolution (0-8191 levels)
-- Configurable frequency per channel
-- Multiple control methods:
-  - Absolute duty cycle (0-8191)
-  - Percentage-based (0-100%)
-  - Microsecond timing (for servo control)
+- `Counter`
+- `esp_driver_gpio`
+- `esp_driver_ledc`
+- `esp_adc`
 
-### Servo Motor Support
-- Direct microsecond pulse width control
-- Typical range: 1000µs (0°) to 2000µs (180°)
-- 50 Hz operation (standard servo frequency)
+## Public API
 
-### Tone Generation
-- Generate audio tones at specific frequencies
-- Adjustable volume (0-100%)
-- Non-blocking timed tones with duration
-- Multiple simultaneous tone channels
-- `update()` method for automatic tone completion
+```cpp
+void digitalPin(std::string name, int8_t pin, gpio_mode_t mode = GPIO_MODE_INPUT);
+int  digitalRead(std::string name);
+void digitalWrite(std::string name, uint8_t value);
 
-### Named Pin System
-- Reference pins by custom names instead of numbers
-- Separate maps for digital and PWM pins
-- Type safety (prevents reading output-only pins, etc.)
+void pwmPin(std::string name, int8_t pin, uint32_t frequency = 5000,
+            ledc_timer_t timer = LEDC_TIMER_0,
+            ledc_timer_bit_t duty_resolution = LEDC_TIMER_13_BIT);
+void setPwmDuty(std::string name, uint32_t duty);
+void setPwmDutyPercent(std::string name, float percent);
+void setPwmDutyPercent(std::string name, int8_t percent);
+void setPwmDutyMicros(std::string name, uint32_t micros);
+void setPwmFrequency(std::string name, uint32_t frequency);
 
-## Installation
+void tone(std::string name, uint32_t frequency, uint8_t volume = 50, uint32_t duration_ms = 0);
+void noTone(std::string name);
+void update();
 
-### ESP-IDF Project
+void analogPin(std::string name, int8_t pin);
+int  analogRead(std::string name);
+void analogWrite(std::string name, uint8_t value);
+```
 
-1. Copy the pinManager folder to your project's components directory:
-   ```bash
-   cp -r ESP-IDF/libraries/pinManager your-project/components/
-   ```
-
-2. The component requires the Counter library:
-   ```bash
-   cp -r Common/libraries/Counter your-project/components/
-   ```
-
-3. The component will be automatically detected by ESP-IDF build system
-
-4. Include in your code:
-   ```cpp
-   #include "pinManager.h"
-   ```
-
-## Usage Examples
-
-### Digital Pin Control
+## Usage
 
 ```cpp
 #include "pinManager.h"
 
 pinManager pins;
 
-void app_main() {
-    // Configure LED as output
+extern "C" void app_main(void) {
     pins.digitalPin("led", 2, GPIO_MODE_OUTPUT);
-    
-    // Configure button as input
-    pins.digitalPin("button", 0, GPIO_MODE_INPUT);
-    
-    // Blink LED
-    while(1) {
+    pins.pwmPin("buzzer", 25, 1000);
+    pins.analogPin("sensor", 4);
+
+    while (true) {
         pins.digitalWrite("led", 1);
-        vTaskDelay(pdMS_TO_TICKS(500));
-        pins.digitalWrite("led", 0);
-        vTaskDelay(pdMS_TO_TICKS(500));
-        
-        // Read button
-        int state = pins.digitalRead("button");
-        if (state == 1) {
-            ESP_LOGI("GPIO", "Button pressed!");
-        }
-    }
-}
-```
-
-### PWM Control
-
-```cpp
-#include "pinManager.h"
-
-pinManager pins;
-
-void app_main() {
-    // Initialize PWM on GPIO 18 at 5000 Hz
-    pins.pwmPin("backlight", 18, 5000, LEDC_TIMER_0, LEDC_TIMER_13_BIT);
-    
-    // Set brightness to 50%
-    pins.setPwmDutyPercent("backlight", 50);
-    
-    // Fade in
-    for (int i = 0; i <= 100; i++) {
-        pins.setPwmDutyPercent("backlight", i);
-        vTaskDelay(pdMS_TO_TICKS(20));
-    }
-    
-    // Set exact duty value (0-8191 for 13-bit)
-    pins.setPwmDuty("backlight", 4096);  // 50%
-}
-```
-
-### Servo Control
-
-```cpp
-#include "pinManager.h"
-
-pinManager pins;
-
-void app_main() {
-    // Initialize servo on GPIO 18 at 50 Hz (standard servo frequency)
-    pins.pwmPin("servo", 18, 50, LEDC_TIMER_0, LEDC_TIMER_13_BIT);
-    
-    // Move to different positions
-    pins.setPwmDutyMicros("servo", 1000);  // 0 degrees
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    
-    pins.setPwmDutyMicros("servo", 1500);  // 90 degrees
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    
-    pins.setPwmDutyMicros("servo", 2000);  // 180 degrees
-    vTaskDelay(pdMS_TO_TICKS(1000));
-}
-```
-
-### Tone Generation
-
-```cpp
-#include "pinManager.h"
-
-pinManager pins;
-
-void app_main() {
-    // Initialize buzzer on GPIO 25
-    pins.pwmPin("buzzer", 25, 1000, LEDC_TIMER_0, LEDC_TIMER_13_BIT);
-    
-    // Play a simple tone
-    pins.tone("buzzer", 440, 50);  // 440 Hz (A note), 50% volume, continuous
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    pins.noTone("buzzer");
-    
-    // Play tones with duration (non-blocking)
-    pins.tone("buzzer", 262, 40, 500);  // C note for 500ms
-    
-    // Must call update() regularly for timed tones to work
-    while(1) {
+        pins.tone("buzzer", 440, 35, 150);
         pins.update();
-        vTaskDelay(pdMS_TO_TICKS(10));
+
+        int raw = pins.analogRead("sensor");
+        (void)raw;
+
+        vTaskDelay(pdMS_TO_TICKS(200));
+        pins.digitalWrite("led", 0);
+        vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
 ```
 
-### Musical Notes Example
+## Behavior Notes
+
+- Digital pin range validation is currently `0..39`.
+- `digitalPin(...)` currently configures pull-down enabled and pull-up disabled.
+- PWM channels are assigned sequentially each time `pwmPin(...)` is called.
+- Timed tones require periodic `update()` calls.
+- ADC helpers currently assume ADC1 GPIO range `1..10` (ESP32-S3 style mapping).
+
+## Include
 
 ```cpp
 #include "pinManager.h"
-
-pinManager pins;
-
-// Musical note frequencies
-#define NOTE_C4  262
-#define NOTE_D4  294
-#define NOTE_E4  330
-#define NOTE_F4  349
-#define NOTE_G4  392
-#define NOTE_A4  440
-#define NOTE_B4  494
-#define NOTE_C5  523
-
-void playMelody() {
-    int melody[] = {NOTE_C4, NOTE_E4, NOTE_G4, NOTE_C5};
-    int durations[] = {200, 200, 200, 400};
-    
-    pins.pwmPin("buzzer", 25, 1000, LEDC_TIMER_0, LEDC_TIMER_13_BIT);
-    
-    for (int i = 0; i < 4; i++) {
-        pins.tone("buzzer", melody[i], 30, durations[i]);
-        
-        // Update until tone completes
-        int elapsed = 0;
-        while (elapsed < durations[i]) {
+```
             pins.update();
             vTaskDelay(pdMS_TO_TICKS(10));
             elapsed += 10;
