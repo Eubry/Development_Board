@@ -9,14 +9,14 @@
 
 class OLEDDisplay {
 public:
-    // Constructor
-    OLEDDisplay();
+    // Constructor with optional pin configuration
+    OLEDDisplay(gpio_num_t sda = GPIO_NUM_8, gpio_num_t scl = GPIO_NUM_9, uint8_t addr = 0x3C);
     
     // Destructor
     ~OLEDDisplay();
     
     // Initialize the display
-    bool init();
+    bool begin();
     
     // Clear the display
     void clear();
@@ -63,10 +63,12 @@ private:
     
     // I2C configuration
     static constexpr i2c_port_t I2C_PORT = I2C_NUM_0;
-    static constexpr gpio_num_t SDA_PIN = GPIO_NUM_8;
-    static constexpr gpio_num_t SCL_PIN = GPIO_NUM_9;
     static constexpr uint32_t I2C_FREQ = 400000; // 400 kHz
-    static constexpr uint8_t I2C_ADDRESS = 0x3C; // Default SSD1306 address
+    
+    // I2C pin and address configuration (configurable per instance)
+    gpio_num_t sda_pin;
+    gpio_num_t scl_pin;
+    uint8_t i2c_address;
     
     // I2C master bus and device handles
     i2c_master_bus_handle_t bus_handle;
