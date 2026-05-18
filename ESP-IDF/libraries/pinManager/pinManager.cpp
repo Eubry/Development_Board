@@ -2,7 +2,7 @@
 
 #define PIN_TAG "PinManager"
 
-void pinManager::digitalPin(std::string name, int8_t pin, gpio_mode_t mode){
+void pinManager::digitalPin(std::string name, int8_t pin, gpio_mode_t mode, gpio_pull_mode_t pull_mode){
     // Validate pin number for ESP32 (GPIO 0-39, with some reserved pins)
     if(pin < 0 || pin > 39) {
         ESP_LOGE(PIN_TAG, "Invalid GPIO pin number: %d. ESP32 supports GPIO 0-39 only.", pin);
@@ -10,13 +10,33 @@ void pinManager::digitalPin(std::string name, int8_t pin, gpio_mode_t mode){
     }
     
     pinMap[name]={static_cast<gpio_num_t>(pin), mode, PinType::DIGITAL, {0, 0, 0}};
-    // Configure GPIO 32 as input
+    // Configure GPIO with specified pull mode
     gpio_config_t io_conf = {};
     io_conf.intr_type = GPIO_INTR_DISABLE;
     io_conf.mode = mode;
     io_conf.pin_bit_mask = (1ULL << pin);
-    io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
-    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    
+    // Configure pull mode
+    switch(pull_mode) {
+        case GPIO_PULLUP_ONLY:
+            io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+            io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+            break;
+        case GPIO_PULLDOWN_ONLY:
+            io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
+            io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+            break;
+        case GPIO_PULLUP_PULLDOWN:
+            io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
+            io_conf.pull_down_en = GPIO_PULLDOWN_ENABLE;
+            break;
+        case GPIO_FLOATING:
+        default:
+            io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+            io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+            break;
+    }
+    
     gpio_config(&io_conf);
 }
 int pinManager::digitalRead(std::string name){

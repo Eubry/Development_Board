@@ -42,7 +42,7 @@ class pinManager{
         
     public:
         pinManager(){};
-        void digitalPin(std::string name, int8_t pin, gpio_mode_t mode=GPIO_MODE_INPUT);
+        void digitalPin(std::string name, int8_t pin, gpio_mode_t mode=GPIO_MODE_INPUT, gpio_pull_mode_t pull_mode=GPIO_FLOATING);
         int digitalRead(std::string name);
         void digitalWrite(std::string name, uint8_t value);
         void pwmPin(std::string name, int8_t pin, uint32_t frequency=5000, ledc_timer_t timer=LEDC_TIMER_0, ledc_timer_bit_t duty_resolution=LEDC_TIMER_13_BIT);
