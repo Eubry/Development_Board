@@ -318,6 +318,11 @@ void OLEDDisplay::drawCircle(uint8_t x, uint8_t y, uint8_t radius, bool filled, 
     int ddF_x = 1;
     int ddF_y = -2 * radius;
     int px = 0, py = radius;
+
+    // Filled circles need the center scanline explicitly to avoid a gap at y.
+    if (filled) {
+        drawLine(x - radius, y, x + radius, y, on);
+    }
     
     drawPixel(x, y + radius, on);
     drawPixel(x, y - radius, on);
@@ -350,6 +355,11 @@ void OLEDDisplay::drawCircle(uint8_t x, uint8_t y, uint8_t radius, bool filled, 
             drawPixel(x - py, y - px, on);
         }
     }
+}
+
+void OLEDDisplay::drawSensorCircle(uint8_t x, uint8_t y, uint8_t radius, bool active) {
+    // Keep sensor status semantics simple: false=outline, true=filled.
+    drawCircle(x, y, radius, active, true);
 }
 
 void OLEDDisplay::update() {

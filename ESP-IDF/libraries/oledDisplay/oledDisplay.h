@@ -44,6 +44,9 @@ public:
     
     // Draw a circle
     void drawCircle(uint8_t x, uint8_t y, uint8_t radius, bool filled, bool on);
+
+    // Draw a sensor status circle: outline when false, filled when true
+    void drawSensorCircle(uint8_t x, uint8_t y, uint8_t radius, bool active);
     
     // Update display (write buffer to device)
     void update();
